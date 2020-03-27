@@ -18,6 +18,7 @@ import net.sf.openrocket.appearance.DecalImage;
 import net.sf.openrocket.document.OpenRocketDocument;
 import net.sf.openrocket.document.StorageOptions;
 import net.sf.openrocket.document.StorageOptions.FileType;
+import net.sf.openrocket.file.icesl.IceSLSaver;
 import net.sf.openrocket.file.openrocket.OpenRocketSaver;
 import net.sf.openrocket.file.rocksim.export.RocksimSaver;
 import net.sf.openrocket.rocketcomponent.RocketComponent;
@@ -137,10 +138,15 @@ public class GeneralRocketSaver {
 	 * @return			the estimated number of bytes the storage would take.
 	 */
 	public long estimateFileSize(OpenRocketDocument doc, StorageOptions options) {
-		if (options.getFileType() == StorageOptions.FileType.ROCKSIM) {
+		switch(options.getFileType()) {
+		case ROCKSIM:
 			return new RocksimSaver().estimateFileSize(doc, options);
-		} else {
+		case OPENROCKET:
 			return new OpenRocketSaver().estimateFileSize(doc, options);
+		case ICESL:
+			return new IceSLSaver().estimateFileSize(doc, options);
+		default:
+			return 0;
 		}
 	}
 	
@@ -149,7 +155,12 @@ public class GeneralRocketSaver {
 		// For now, we don't save decal inforamtion in ROCKSIM files, so don't do anything
 		// which follows.
 		// TODO - add support for decals in ROCKSIM files?
-		if (options.getFileType() == FileType.ROCKSIM) {
+		switch(options.getFileType()) {
+		case ROCKSIM:
+			saveInternal(output, document, options);
+			output.close();
+			return;
+		case ICESL:
 			saveInternal(output, document, options);
 			output.close();
 			return;
@@ -219,10 +230,18 @@ public class GeneralRocketSaver {
 	private void saveInternal(OutputStream output, OpenRocketDocument document, StorageOptions options)
 			throws IOException {
 		
-		if (options.getFileType() == StorageOptions.FileType.ROCKSIM) {
+		switch(options.getFileType()) {
+		case ROCKSIM:
 			new RocksimSaver().save(output, document, options);
-		} else {
+			return;
+		case OPENROCKET:
 			new OpenRocketSaver().save(output, document, options);
+			return;
+		case ICESL:
+			new IceSLSaver().save(output, document, options);
+			return;
+		default:
+			assert(false);
 		}
 	}
 	

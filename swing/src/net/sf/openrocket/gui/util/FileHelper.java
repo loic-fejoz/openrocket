@@ -57,7 +57,9 @@ public final class FileHelper {
 	public static final FileFilter CSV_FILE_FILTER =
 			new SimpleFileFilter(trans.get("SimExpPan.desc"), ".csv");
 
-
+	/** File filter for IceSL files (*.lua) */
+	public static final FileFilter ICESL_DESIGN_FILTER =
+			new SimpleFileFilter(trans.get("BasicFrame.IceSLFilter.desc"), ".lua");
 
 
 	private FileHelper() {

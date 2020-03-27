@@ -52,6 +52,13 @@ public class SaveAsFileChooser extends JFileChooser {
 			this.addChoosableFileFilter(FileHelper.ROCKSIM_DESIGN_FILTER);
 			this.setFileFilter(FileHelper.ROCKSIM_DESIGN_FILTER);
 			break;
+		case ICESL:
+			defaultFilename = FileHelper.forceExtension(defaultFilename,"lua");
+			this.setDialogTitle(trans.get("saveAs.icesl.title"));
+			storageChooser = null;
+			this.addChoosableFileFilter(FileHelper.ICESL_DESIGN_FILTER);
+			this.setFileFilter(FileHelper.ICESL_DESIGN_FILTER);
+			break;			
 		}
 		
 		final RememberFilenamePropertyListener listner = new RememberFilenamePropertyListener();

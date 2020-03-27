@@ -511,6 +511,18 @@ public class BasicFrame extends JFrame {
 			}
 		});
 		menu.add(item);
+		
+		//// Export IceSL
+		item = new JMenuItem(trans.get("main.menu.file.exportIceSL"));
+		item.getAccessibleContext().setAccessibleDescription(trans.get("main.menu.file.exportIceSL.desc"));
+		item.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				log.info(Markers.USER_MARKER, "Export IceSL... selected");
+				exportIceSLAction();
+			}
+		});
+		menu.add(item);
 
 		//// Export decal...
 		item = new JMenuItem(trans.get("main.menu.file.exportDecal"));
@@ -1367,6 +1379,38 @@ public class BasicFrame extends JFrame {
 		}
 		return false;
 	}
+	
+	/**
+	 * "Export IceSL" action.
+	 *
+	 * @return true if the file was saved, false otherwise
+	 */
+	private boolean exportIceSLAction() {
+		File file = null;
+
+		final SaveAsFileChooser chooser = SaveAsFileChooser.build(document, FileType.ICESL);
+
+		int option = chooser.showSaveDialog(BasicFrame.this);
+
+		if (option != JFileChooser.APPROVE_OPTION) {
+			log.info(Markers.USER_MARKER, "User decided not to save, option=" + option);
+			return false;
+		}
+
+		file = chooser.getSelectedFile();
+		if (file == null) {
+			log.info(Markers.USER_MARKER, "User did not select a file");
+			return false;
+		}
+
+		((SwingPreferences) Application.getPreferences()).setDefaultDirectory(chooser.getCurrentDirectory());
+
+		file = FileHelper.forceExtension(file, "lua");
+		if (FileHelper.confirmWrite(file, this) ) {
+			return saveAsIceSL(file);
+		}
+		return false;
+	}
 
 	/**
 	 * Perform the writing of the design to the given file in Rocksim format.
@@ -1507,6 +1551,30 @@ public class BasicFrame extends JFrame {
 		return false;
 	}
 
+	/**
+	 * Perform the export of the design to the given file in IceSL format.
+	 *
+	 * @param file  the chosen file
+	 *
+	 * @return true if the file was written
+	 */
+	private boolean saveAsIceSL(File file) {
+		file = FileHelper.forceExtension(file, "lua");
+		log.info("Saving document as " + file);
+		if (!FileHelper.confirmWrite(file, this)) {
+			return false;
+		}
+
+		try {
+			StorageOptions options = new StorageOptions();
+			options.setFileType(StorageOptions.FileType.ICESL);
+			ROCKET_SAVER.save(file, document, options);
+			// Do not update the save state of the document.
+			return true;
+		} catch (IOException e) {
+			return false;
+		}
+	}	
 
 	private boolean closeAction() {
 		if (!document.isSaved()) {
