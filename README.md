@@ -1,6 +1,23 @@
 OpenRocket
 ==========
 
+
+WARNING: This is a fork, not the original repository.
+
+Fork Goal
+---------
+
+
+Propose an export for 3D print parts.
+
+Here after, you can see a design where two parts could be 3D printed.
+The export provides lua script for the [IceSL](icesl.loria.fr/) modeler and slicer.
+
+![](shot0002.png)
+![](shot0000.png)
+![](shot0001.png)
+
+
 Build Status - [ ![Build Status](https://travis-ci.org/openrocket/openrocket.png) ](https://travis-ci.org/openrocket/openrocket)
 ------------
 
