@@ -48,6 +48,7 @@ public class StlSaverTest {
 		protected int triangle_count = 0;
 		
 		protected final float zero[] = { 0.f, 0.f, 0.f };
+		private boolean rotate = false;
 		
 		
 		public StlOutputSteam(final OutputStream outputStream) throws IOException {
@@ -125,7 +126,11 @@ public class StlSaverTest {
 		}
 		
 		private void writeVector(float[] v) throws IOException {
-			writeVector(v[0], v[1], v[2]);
+			if (rotate) {
+				writeVector(v[2], v[1], -v[0]);
+			} else {
+				writeVector(v[0], v[1], v[2]);
+			}
 		}
 		
 		public void writeSquare(float[] n, float[] p0, float[] p1, float[] p2, float[] p3) throws IOException {
@@ -232,6 +237,10 @@ public class StlSaverTest {
 			return angle_delta;
 		}
 		
+		public void configureRotationFor3DPrint() {
+			rotate = true;
+		}
+		
 	}
 	
 	@BeforeClass
@@ -309,15 +318,11 @@ public class StlSaverTest {
 		final double thickness = 5;
 		
 		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.POWER;
-		
 		w.writeHeader();
 		final int n = 20;
 		w.configureForUnknownTriangleCount();
-		
+		w.configureRotationFor3DPrint();
 		w.writeOgive(shape_param, radius, length, thickness, ogive_shape, n);
-		
-		
-		
 		w.flush();
 		w.close();
 		
