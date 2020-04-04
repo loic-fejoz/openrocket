@@ -6,10 +6,12 @@ import static org.junit.Assert.fail;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Stack;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -32,8 +34,11 @@ import net.sf.openrocket.l10n.Translator;
 import net.sf.openrocket.motor.Motor;
 import net.sf.openrocket.motor.ThrustCurveMotor;
 import net.sf.openrocket.plugin.PluginModule;
+import net.sf.openrocket.rocketcomponent.NoseCone;
+import net.sf.openrocket.rocketcomponent.RocketComponent;
 import net.sf.openrocket.rocketcomponent.Transition.Shape;
 import net.sf.openrocket.startup.Application;
+import net.sf.openrocket.util.TestRockets;
 
 public class StlSaverTest {
 	
@@ -169,7 +174,7 @@ public class StlSaverTest {
 			writeSquare(zero, p1a, p1b, p2b, p2a);
 		}
 		
-		public void writeOgive(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n)
+		public void writeNoseCone(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n)
 				throws IOException {
 			
 			
@@ -199,14 +204,14 @@ public class StlSaverTest {
 		private double writeProfile(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n, double angle_delta,
 				final boolean inout)
 				throws IOException {
-			double x = 0.1f + thickness;
+			double x = 0.1f;
 			final float[] p0 = { (float) thickness, 0f, 0f };
 			// Generate the endpoint
-			double y = ogive_shape.getRadius(x, radius, length, shape_param) - thickness;
+			double y = Math.max(0, ogive_shape.getRadius(Math.min(x, length), radius, length, shape_param) - thickness);
 			float[] p1 = { (float) x, (float) y, 0f };
 			for (double angle_rad = angle_delta; angle_rad <= 2 * Math.PI; angle_rad += angle_delta) {
 				float[] p2 = rotated(y, angle_rad);
-				p2[0] = (float) x;
+				p2[0] = (float) (x + thickness);
 				if (inout) {
 					writeTriangle(p0, p2, p1);
 				} else {
@@ -216,15 +221,15 @@ public class StlSaverTest {
 			}
 			// Generate layer by layer
 			for (; x < length - 0.1; x += 0.1) {
-				final double y1 = Math.abs(ogive_shape.getRadius(x, radius, length, shape_param) - thickness);
-				final double y2 = Math.abs(ogive_shape.getRadius(x + 0.1, radius, length, shape_param) - thickness);
+				final double y1 = Math.max(0, ogive_shape.getRadius(x, radius, length, shape_param) - thickness);
+				final double y2 = Math.max(0, ogive_shape.getRadius(x + 0.1, radius, length, shape_param) - thickness);
 				float p1a[] = new float[] { (float) x, (float) y1, 0f };
 				float p1b[] = { (float) x + 0.1f, (float) y2, 0f };
 				for (double angle_rad = angle_delta; angle_rad <= 2 * Math.PI; angle_rad += angle_delta) {
 					float[] p2a = rotated(y1, angle_rad);
 					float[] p2b = rotated(y2, angle_rad);
-					p2a[0] = (float) x;
-					p2b[0] = (float) (x + 0.1);
+					p2a[0] = (float) (x + thickness);
+					p2b[0] = (float) (x + 0.1 + thickness);
 					if (inout) {
 						writeSquare(p1a, p2a, p2b, p1b);
 					} else {
@@ -307,26 +312,118 @@ public class StlSaverTest {
 	}
 	
 	@Test
-	public void testGenerateOgive() throws IOException {
-		//OpenRocketDocument rocketDoc = TestRockets.makeTestRocket_v100();
-		final FileOutputStream os = new FileOutputStream("/tmp/ogive.stl");
-		final StlOutputSteam w = new StlOutputSteam(os);
-		
+	public void testGeneratePowerNoseCone() throws IOException {
 		final double shape_param = 0.2;
-		final double radius = 25;
-		final double length = 6 * radius;
-		final double thickness = 5;
-		
 		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.POWER;
+		writeNoseCone(shape_param, ogive_shape);
+	}
+	
+	@Test
+	public void testGenerateConicalNoseCone() throws IOException {
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.CONICAL;
+		writeNoseCone(shape_param, ogive_shape);
+	}
+	
+	@Test
+	public void testGenerateEllipsoidNoseCone() throws IOException {
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.ELLIPSOID;
+		writeNoseCone(shape_param, ogive_shape);
+	}
+	
+	@Test
+	public void testGenerateHaackConicalNoseCone() throws IOException {
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.HAACK;
+		writeNoseCone(shape_param, ogive_shape);
+	}
+	
+	
+	@Test
+	public void testGenerateNoseCone() throws IOException {
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.OGIVE;
+		writeNoseCone(shape_param, ogive_shape);
+	}
+	
+	@Test
+	public void testGenerateParabolicNoseCone() throws IOException {
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.PARABOLIC;
+		writeNoseCone(shape_param, ogive_shape);
+	}
+	
+	@Test
+	public void testGenerateRocketV100NoseCone() throws IOException {
+		writeNose(new TestRockets("ork2stl").makeTestRocket(), "testrocket");
+	}
+	
+	@Test
+	public void testGenerateRocketSmallFlyable() throws IOException {
+		writeNose(TestRockets.makeSmallFlyable(), "small-flyable");
+	}
+	
+	@Test
+	public void testGenerateRocketBigBlue() throws IOException {
+		writeNose(TestRockets.makeBigBlue(), "big-blue");
+	}
+	
+	@Test
+	public void testGenerateRocketIsoHaisu() throws IOException {
+		writeNose(TestRockets.makeIsoHaisu(), "iso-haisu");
+	}
+	
+	private void writeNose(final RocketComponent root, final String samplename) throws IOException {
+		final Stack<RocketComponent> toVisit = new Stack<>();
+		toVisit.push(root);
+		while (!toVisit.isEmpty()) {
+			final RocketComponent aChild = toVisit.pop();
+			if (aChild instanceof NoseCone) {
+				final NoseCone nose = (NoseCone) aChild;
+				writeNoseCone(nose, samplename);
+			} else {
+				toVisit.addAll(aChild.getChildren());
+			}
+		}
+	}
+	
+	private void writeNoseCone(NoseCone nose, final String samplename) throws IOException {
+		final FileOutputStream os = new FileOutputStream("/tmp/nose-" + samplename + ".stl");
+		final StlOutputSteam w = new StlOutputSteam(os);
+		final double radius = nose.getAftRadius();
+		final double length = nose.getLength();
+		final double thickness = nose.getAftShoulderThickness();
+		
 		w.writeHeader();
 		final int n = 20;
 		w.configureForUnknownTriangleCount();
 		w.configureRotationFor3DPrint();
-		w.writeOgive(shape_param, radius, length, thickness, ogive_shape, n);
+		w.writeNoseCone(
+				nose.getShapeParameter(),
+				radius,
+				length,
+				thickness,
+				nose.getType(),
+				n);
 		w.flush();
 		w.close();
+	}
+	
+	private void writeNoseCone(final double shape_param, final Shape ogive_shape) throws FileNotFoundException, IOException {
+		final FileOutputStream os = new FileOutputStream("/tmp/ogive-" + ogive_shape.name() + ".stl");
+		final StlOutputSteam w = new StlOutputSteam(os);
+		final double radius = 25;
+		final double length = 6 * radius;
+		final double thickness = 5;
 		
-		
+		w.writeHeader();
+		final int n = 20;
+		w.configureForUnknownTriangleCount();
+		w.configureRotationFor3DPrint();
+		w.writeNoseCone(shape_param, radius, length, thickness, ogive_shape, n);
+		w.flush();
+		w.close();
 	}
 	
 	
