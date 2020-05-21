@@ -42,8 +42,6 @@ import net.sf.openrocket.util.TestRockets;
 
 public class StlSaverTest {
 	
-	private static final String TMP_DIR = "./tmp/";
-	
 	private static Injector injector;
 	
 	public class StlOutputSteam {
@@ -52,7 +50,7 @@ public class StlSaverTest {
 		protected OutputStream os;
 		protected int triangle_count = 0;
 		
-		protected final float zero[] = { 0.f, 0.f, 0.f };
+		protected final double zero[] = { 0.f, 0.f, 0.f };
 		private boolean rotate = false;
 		
 		
@@ -87,8 +85,8 @@ public class StlSaverTest {
 			w.write((byte) (i >> 24));
 		}
 		
-		public void writeFloat32(float val) throws IOException {
-			int i = Float.floatToRawIntBits(val);
+		public void writeFloat32(double val) throws IOException {
+			int i = Float.floatToRawIntBits((float) val);
 			w.write((byte) (i));
 			w.write((byte) (i >> 8));
 			w.write((byte) (i >> 16));
@@ -99,14 +97,10 @@ public class StlSaverTest {
 			writeUInt32(i);
 		}
 		
-		public void writeVector(float x, float y, float z) throws IOException {
+		public void writeVector(double x, double y, double z) throws IOException {
 			writeFloat32(x);
 			writeFloat32(y);
 			writeFloat32(z);
-		}
-		
-		public void writeVector(double x, double y, double z) throws IOException {
-			writeVector((float) x, (float) y, (float) z);
 		}
 		
 		public void writeTriangleAttribute() throws IOException {
@@ -117,7 +111,7 @@ public class StlSaverTest {
 			w.close();
 		}
 		
-		public void writeTriangle(float[] n1, float[] p0, float[] p1, float[] p2) throws IOException {
+		public void writeTriangle(double[] n1, double[] p0, double[] p1, double[] p2) throws IOException {
 			triangle_count++;
 			writeVector(n1);
 			writeVector(p0);
@@ -126,11 +120,7 @@ public class StlSaverTest {
 			writeTriangleAttribute();
 		}
 		
-		public void writeTriangle(float[] p0, float[] p1, float[] p2) throws IOException {
-			writeTriangle(zero, p0, p1, p2);
-		}
-		
-		private void writeVector(float[] v) throws IOException {
+		private void writeVector(double[] v) throws IOException {
 			if (rotate) {
 				writeVector(v[2], v[1], -v[0]);
 			} else {
@@ -138,7 +128,7 @@ public class StlSaverTest {
 			}
 		}
 		
-		public void writeSquare(float[] n, float[] p0, float[] p1, float[] p2, float[] p3) throws IOException {
+		public void writeSquare(double[] n, double[] p0, double[] p1, double[] p2, double[] p3) throws IOException {
 			writeTriangle(n, p0, p1, p3);
 			writeTriangle(n, p3, p1, p2);
 		}
@@ -158,59 +148,49 @@ public class StlSaverTest {
 		}
 		
 		public void writeTriangle(double[] p0, double[] p1, double[] p2) throws IOException {
-			writeTriangle(zero, asFloat(p0), asFloat(p1), asFloat(p2));
+			writeTriangle(zero, p0, p1, p2);
 		}
 		
-		private float[] asFloat(double[] v) {
-			return new float[] { (float) v[0], (float) v[1], (float) v[2] };
-		}
-		
-		public float[] rotated(double L, double angle_rad) {
-			final float[] v = new float[] { 0f, (float) (L * Math.cos(angle_rad)), (float) (-L * Math.sin(angle_rad)) };
+		public double[] rotated(double L, double angle_rad) {
+			final double[] v = new double[] { 0f, (double) (L * Math.cos(angle_rad)), (double) (-L * Math.sin(angle_rad)) };
 			return v;
 		}
 		
-		public void writeSquare(float[] p1a, float[] p1b, float[] p2b, float[] p2a) throws IOException {
+		public void writeSquare(double[] p1a, double[] p1b, double[] p2b, double[] p2a) throws IOException {
 			writeSquare(zero, p1a, p1b, p2b, p2a);
 		}
 		
 		public void writeNoseCone(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n)
 				throws IOException {
 			
-			
-			double y;
-			
-			final double angle_delta = Math.PI * 2 / n;
-			
-			writeProfile(shape_param, radius, length, 0, ogive_shape, n, angle_delta, false);
-			writeProfile(shape_param, radius, length, thickness, ogive_shape, n, angle_delta, true);
-			
+			final double delta_x = 5f;
+			final double[][] outerEndPoints = writeProfile(shape_param, radius, length, 0, ogive_shape, n, delta_x, false);
+			final double[][] innerEndPoints = writeProfile(shape_param, radius, length - thickness, thickness, ogive_shape, n, delta_x, true);
+			assert (outerEndPoints.length == innerEndPoints.length) : "Expect same length: " + Integer.toString(outerEndPoints.length) + " vs " + Integer.toString(innerEndPoints.length);
 			// Close end
-			y = ogive_shape.getRadius(length, radius, length, shape_param);
-			double y_int = y - thickness;
-			float[] p1 = new float[] { (float) length, (float) y, 0f };
-			float[] p1_int = new float[] { (float) length, (float) y_int, 0f };
-			for (double angle_rad = angle_delta; angle_rad <= 2 * Math.PI; angle_rad += angle_delta) {
-				float[] p2 = rotated(y, angle_rad);
-				float[] p2_int = rotated(y_int, angle_rad);
-				p2[0] = (float) length;
-				p2_int[0] = (float) length;
+			for (int i = 0; i < outerEndPoints.length; i++) {
+				double[] p1 = outerEndPoints[i];
+				double[] p1_int = innerEndPoints[i];
+				double[] p2 = outerEndPoints[(i + 1) % outerEndPoints.length];
+				double[] p2_int = innerEndPoints[(i + 1) % innerEndPoints.length];
 				writeSquare(p1, p1_int, p2_int, p2);
-				p1 = p2;
-				p1_int = p2_int;
 			}
 		}
 		
-		private double writeProfile(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n, double angle_delta,
+		
+		
+		private double[][] writeProfile(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n,
+				final double delta_x,
 				final boolean inout)
 				throws IOException {
-			double x = 0.1f;
-			final float[] p0 = { (float) thickness, 0f, 0f };
-			// Generate the endpoint
+			double x = delta_x;
+			final double[] p0 = { (float) thickness, 0f, 0f };
+			// Generate the tip endpoints
 			double y = Math.max(0, ogive_shape.getRadius(Math.min(x, length), radius, length, shape_param) - thickness);
-			float[] p1 = { (float) x, (float) y, 0f };
-			for (double angle_rad = angle_delta; angle_rad <= 2 * Math.PI; angle_rad += angle_delta) {
-				float[] p2 = rotated(y, angle_rad);
+			double[] p1 = { (double) x, (double) y, 0f };
+			for (int i = 0; i < n + 1; i++) {
+				final double angle_rad = Math.PI * 2 * i / n;
+				double[] p2 = rotated(y, angle_rad);
 				p2[0] = (float) (x + thickness);
 				if (inout) {
 					writeTriangle(p0, p2, p1);
@@ -219,27 +199,31 @@ public class StlSaverTest {
 				}
 				p1 = p2;
 			}
+			/* Track the endPoints of the profile so as to be able to close the shape */
+			final double[][] endPoints = new double[n + 1][3];
 			// Generate layer by layer
-			for (; x < length - 0.1; x += 0.1) {
+			for (; x < length - delta_x; x += delta_x) {
 				final double y1 = Math.max(0, ogive_shape.getRadius(x, radius, length, shape_param) - thickness);
-				final double y2 = Math.max(0, ogive_shape.getRadius(x + 0.1, radius, length, shape_param) - thickness);
-				float p1a[] = new float[] { (float) x, (float) y1, 0f };
-				float p1b[] = { (float) x + 0.1f, (float) y2, 0f };
-				for (double angle_rad = angle_delta; angle_rad <= 2 * Math.PI; angle_rad += angle_delta) {
-					float[] p2a = rotated(y1, angle_rad);
-					float[] p2b = rotated(y2, angle_rad);
-					p2a[0] = (float) (x + thickness);
-					p2b[0] = (float) (x + 0.1 + thickness);
+				final double y2 = Math.max(0, ogive_shape.getRadius(x + delta_x, radius, length, shape_param) - thickness);
+				double p1a[] = new double[] { x, y1, 0f };
+				double p1b[] = { Math.min(x + delta_x, length), y2, 0f };
+				for (int i = 0; i < n + 1; i++) {
+					final double angle_rad = Math.PI * 2 * i / n;
+					double[] p2a = rotated(y1, angle_rad);
+					double[] p2b = rotated(y2, angle_rad);
+					p2a[0] = x + thickness;
+					p2b[0] = x + delta_x + thickness;
 					if (inout) {
 						writeSquare(p1a, p2a, p2b, p1b);
 					} else {
 						writeSquare(p1a, p1b, p2b, p2a);
 					}
+					endPoints[i] = p2b;
 					p1a = p2a;
 					p1b = p2b;
 				}
 			}
-			return angle_delta;
+			return endPoints;
 		}
 		
 		public void configureRotationFor3DPrint() {
@@ -282,24 +266,21 @@ public class StlSaverTest {
 		w.writeHeader();
 		w.writeNumberOfTriangles(8);
 		
-		final float x[] = { 1f, 0.f, 0f };
-		final float mx[] = { -1f, 0.f, 0f };
+		final double x[] = { 1f, 0.f, 0f };
+		final double mx[] = { -1f, 0.f, 0f };
 		
-		final float y[] = { 0f, 1f, 0.f };
-		final float my[] = { 0f, -1f, 0f };
+		final double z[] = { 0.f, 0.f, 1f };
+		final double mz[] = { 0.f, 0.f, -1f };
 		
-		final float z[] = { 0.f, 0.f, 1f };
-		final float mz[] = { 0.f, 0.f, -1f };
+		final double p0[] = { 0.f, 0.f, 0.f };
+		final double px1[] = { 1.f, 0.f, 0f };
+		final double py1[] = { 0.f, 1f, 0f };
+		final double pxy1[] = { 1.f, 1f, 0f };
 		
-		final float p0[] = { 0.f, 0.f, 0.f };
-		final float px1[] = { 1.f, 0.f, 0f };
-		final float py1[] = { 0.f, 1f, 0f };
-		final float pxy1[] = { 1.f, 1f, 0f };
-		
-		final float pz1[] = { 0.f, 0.f, 1.f };
-		final float px1z1[] = { 1.f, 0.f, 1f };
-		final float py1z1[] = { 0.f, 1f, 1f };
-		final float pxyz1[] = { 1.f, 1f, 1f };
+		final double pz1[] = { 0.f, 0.f, 1.f };
+		final double px1z1[] = { 1.f, 0.f, 1f };
+		final double py1z1[] = { 0.f, 1f, 1f };
+		final double pxyz1[] = { 1.f, 1f, 1f };
 		
 		
 		w.writeSquare(mz, p0, px1, pxy1, py1);
