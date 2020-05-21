@@ -163,7 +163,7 @@ public class StlSaverTest {
 		public void writeNoseCone(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n)
 				throws IOException {
 			
-			final double delta_x = 5f;
+			final double delta_x = length / 100.0;
 			final double[][] outerEndPoints = writeProfile(shape_param, radius, length, 0, ogive_shape, n, delta_x, false);
 			final double[][] innerEndPoints = writeProfile(shape_param, radius, length - thickness, thickness, ogive_shape, n, delta_x, true);
 			assert (outerEndPoints.length == innerEndPoints.length) : "Expect same length: " + Integer.toString(outerEndPoints.length) + " vs " + Integer.toString(innerEndPoints.length);
@@ -372,12 +372,14 @@ public class StlSaverTest {
 	private void writeNoseCone(NoseCone nose, final String samplename) throws IOException {
 		final FileOutputStream os = new FileOutputStream("/tmp/nose-" + samplename + ".stl");
 		final StlOutputSteam w = new StlOutputSteam(os);
-		final double radius = nose.getAftRadius();
-		final double length = nose.getLength();
-		final double thickness = nose.getAftShoulderThickness();
+		
+		final double one_meter_in_millimeter = 1000.0;
+		final double radius = nose.getAftRadius() * one_meter_in_millimeter;
+		final double length = nose.getLength() * one_meter_in_millimeter;
+		final double thickness = nose.getThickness() * one_meter_in_millimeter;
 		
 		w.writeHeader();
-		final int n = 20;
+		final int n = 180;
 		w.configureForUnknownTriangleCount();
 		w.configureRotationFor3DPrint();
 		w.writeNoseCone(
