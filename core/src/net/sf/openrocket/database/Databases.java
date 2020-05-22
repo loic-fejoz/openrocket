@@ -41,6 +41,7 @@ public class Databases {
 	static {
 		
 		// Add default materials
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "ABS", 1010));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Acrylic", 1190));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Aluminum", 2700));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Balsa", 170));
@@ -52,13 +53,19 @@ public class Databases {
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Cork", 240));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Depron (XPS)", 40));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Fiberglass", 1850));
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "HIPS", 980));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Kraft phenolic", 950));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Maple", 755));
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Nylon", 1140));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Paper (office)", 820));
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "PC", 1210));
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "PET", 1260));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Pine", 530));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Plywood (birch)", 630));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Polycarbonate (Lexan)", 1200));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Polystyrene", 1050));
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "PLA", 1250));
+		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "PP-Polypropylene", 750));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "PVC", 1390));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Spruce", 450));
 		BULK_MATERIAL.add(newMaterial(Material.Type.BULK, "Steel", 7850));
