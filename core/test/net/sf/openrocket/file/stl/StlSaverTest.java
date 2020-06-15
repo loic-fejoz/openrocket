@@ -44,7 +44,7 @@ public class StlSaverTest {
 	
 	private static Injector injector;
 	
-	public class StlOutputSteam {
+	public static class StlOutputSteam {
 		
 		protected OutputStream w;
 		protected OutputStream os;
@@ -160,14 +160,48 @@ public class StlSaverTest {
 			writeSquare(zero, p1a, p1b, p2b, p2a);
 		}
 		
-		public void writeNoseCone(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n)
+		public void writeNoseCone(final NoseCone nose, final int n)
 				throws IOException {
 			
+			final double shape_param = nose.getShapeParameter();
+			final Shape ogive_shape = nose.getType();
+			final double one_meter_in_millimeter = 1000.0;
+			final double radius = nose.getAftRadius() * one_meter_in_millimeter;
+			final double length = nose.getLength() * one_meter_in_millimeter;
+			final double thickness = nose.getThickness() * one_meter_in_millimeter;
+			
 			final double delta_x = length / 100.0;
-			final double[][] outerEndPoints = writeProfile(shape_param, radius, length, 0, ogive_shape, n, delta_x, false);
-			final double[][] innerEndPoints = writeProfile(shape_param, radius, length - thickness, thickness, ogive_shape, n, delta_x, true);
+			double[][] outerEndPoints = writeProfile(shape_param, radius, length, 0, ogive_shape, n, delta_x, false);
+			double[][] innerEndPoints = writeProfile(shape_param, radius, length - thickness, thickness, ogive_shape, n, delta_x, true);
 			assert (outerEndPoints.length == innerEndPoints.length) : "Expect same length: " + Integer.toString(outerEndPoints.length) + " vs " + Integer.toString(innerEndPoints.length);
 			// Close end
+			if (nose.getAftShoulderLength() > 0.0) {
+				
+				final double externalRadius = nose.getAftShoulderRadius() * one_meter_in_millimeter;
+				final double internalRadius = externalRadius - nose.getAftShoulderThickness() * one_meter_in_millimeter;
+				// Shoulder's aft	
+				final double x = innerEndPoints[0][0];
+				double[] p1_shoulder_ext = { x, (double) externalRadius, 0f };
+				double[] p1_shoulder_int = { x, (double) internalRadius, 0f };
+				for (int i = 0; i < n + 1; i++) {
+					final double angle_rad = Math.PI * 2 * i / n;
+					double[] p2_shoulder_ext = rotated(externalRadius, angle_rad);
+					double[] p2_shoulder_int = rotated(internalRadius, angle_rad);
+					p2_shoulder_ext[0] = (float) (x);
+					p2_shoulder_int[0] = (float) (x);
+					double[] p1 = outerEndPoints[i];
+					double[] p1_int = innerEndPoints[i];
+					double[] p2 = outerEndPoints[(i + 1) % outerEndPoints.length];
+					double[] p2_int = innerEndPoints[(i + 1) % innerEndPoints.length];
+					writeSquare(p1, p1_shoulder_ext, p2_shoulder_ext, p2);
+					writeSquare(p1_shoulder_int, p1_int, p2_int, p2_shoulder_int);
+					p1_shoulder_ext = p2_shoulder_ext;
+					p1_shoulder_int = p2_shoulder_int;
+				}
+				// Shoulder's side
+				outerEndPoints = generateProfilePart(-1.0, externalRadius, length + nose.getAftShoulderLength() * one_meter_in_millimeter, 0, null, n, delta_x, false, x);
+				innerEndPoints = generateProfilePart(-1.0, internalRadius, length + nose.getAftShoulderLength() * one_meter_in_millimeter, 0, null, n, delta_x, true, x);
+			}
 			for (int i = 0; i < outerEndPoints.length; i++) {
 				double[] p1 = outerEndPoints[i];
 				double[] p1_int = innerEndPoints[i];
@@ -184,6 +218,12 @@ public class StlSaverTest {
 				final boolean inout)
 				throws IOException {
 			double x = delta_x;
+			generateTipPart(shape_param, radius, length, thickness, ogive_shape, n, inout, x);
+			return generateProfilePart(shape_param, radius, length, thickness, ogive_shape, n, delta_x, inout, x);
+		}
+		
+		private void generateTipPart(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n, final boolean inout, double x)
+				throws IOException {
 			final double[] p0 = { (float) thickness, 0f, 0f };
 			// Generate the tip endpoints
 			double y = Math.max(0, ogive_shape.getRadius(Math.min(x, length), radius, length, shape_param) - thickness);
@@ -199,12 +239,16 @@ public class StlSaverTest {
 				}
 				p1 = p2;
 			}
-			/* Track the endPoints of the profile so as to be able to close the shape */
+		}
+		
+		private double[][] generateProfilePart(final double shape_param, final double radius, final double length, final double thickness, final Shape ogive_shape, final int n, final double delta_x,
+				final boolean inout, double x) throws IOException {
+			/* Track the endPoints of the profile so as to be able to close the shape accurately */
 			final double[][] endPoints = new double[n + 1][3];
 			// Generate layer by layer
 			for (; x < length - delta_x; x += delta_x) {
-				final double y1 = Math.max(0, ogive_shape.getRadius(x, radius, length, shape_param) - thickness);
-				final double y2 = Math.max(0, ogive_shape.getRadius(x + delta_x, radius, length, shape_param) - thickness);
+				final double y1 = Math.max(0, (ogive_shape == null) ? radius : ogive_shape.getRadius(x, radius, length, shape_param) - thickness);
+				final double y2 = Math.max(0, (ogive_shape == null) ? radius : ogive_shape.getRadius(x + delta_x, radius, length, shape_param) - thickness);
 				double p1a[] = new double[] { x, y1, 0f };
 				double p1b[] = { Math.min(x + delta_x, length), y2, 0f };
 				for (int i = 0; i < n + 1; i++) {
@@ -336,6 +380,53 @@ public class StlSaverTest {
 	}
 	
 	@Test
+	public void testGenerateHaackConicalNoseConeWithAftShoulderSmaller() throws IOException {
+		final double mm = 1.0 / 1000.0;
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.HAACK;
+		final double radius = 25 * mm;
+		final double length = 6 * radius;
+		final double thickness = 5 * mm;
+		
+		final NoseCone nose = new NoseCone();
+		nose.setType(ogive_shape);
+		nose.setAftRadius(radius);
+		nose.setLength(length);
+		nose.setThickness(thickness);
+		nose.setShapeParameter(shape_param);
+		nose.setAftShoulderLength(radius);
+		nose.setAftShoulderRadius(radius - thickness / 2);
+		nose.setAftShoulderThickness(1);
+		nose.setName("haack-with-smaller-aft-shoulder");
+		
+		writeNoseCone(nose, nose.getName());
+	}
+	
+	@Test
+	public void testGenerateHaackConicalNoseConeWithAftShoulderBigger() throws IOException {
+		final double mm = 1.0 / 1000.0;
+		final double shape_param = 1.0;
+		final Shape ogive_shape = net.sf.openrocket.rocketcomponent.Transition.Shape.HAACK;
+		final double radius = 25 * mm;
+		final double length = 6 * radius;
+		final double thickness = 5 * mm;
+		
+		final NoseCone nose = new NoseCone();
+		nose.setType(ogive_shape);
+		nose.setAftRadius(radius);
+		nose.setLength(length);
+		nose.setThickness(thickness);
+		nose.setShapeParameter(shape_param);
+		nose.setAftShoulderLength(radius);
+		nose.setAftShoulderRadius(radius - thickness * 2 / 3);
+		nose.setAftShoulderThickness(thickness);
+		nose.setName("haack-with-bigger-aft-shoulder");
+		
+		writeNoseCone(nose, nose.getName());
+	}
+	
+	
+	@Test
 	public void testGenerateRocketV100NoseCone() throws IOException {
 		writeNose(new TestRockets("ork2stl").makeTestRocket(), "testrocket");
 	}
@@ -373,21 +464,12 @@ public class StlSaverTest {
 		final FileOutputStream os = new FileOutputStream("/tmp/nose-" + samplename + ".stl");
 		final StlOutputSteam w = new StlOutputSteam(os);
 		
-		final double one_meter_in_millimeter = 1000.0;
-		final double radius = nose.getAftRadius() * one_meter_in_millimeter;
-		final double length = nose.getLength() * one_meter_in_millimeter;
-		final double thickness = nose.getThickness() * one_meter_in_millimeter;
-		
 		w.writeHeader();
 		final int n = 180;
 		w.configureForUnknownTriangleCount();
 		w.configureRotationFor3DPrint();
 		w.writeNoseCone(
-				nose.getShapeParameter(),
-				radius,
-				length,
-				thickness,
-				nose.getType(),
+				nose,
 				n);
 		w.flush();
 		w.close();
@@ -400,11 +482,18 @@ public class StlSaverTest {
 		final double length = 6 * radius;
 		final double thickness = 5;
 		
+		final NoseCone nose = new NoseCone();
+		nose.setType(ogive_shape);
+		nose.setAftRadius(radius);
+		nose.setLength(length);
+		nose.setThickness(thickness);
+		nose.setShapeParameter(shape_param);
+		
 		w.writeHeader();
 		final int n = 20;
 		w.configureForUnknownTriangleCount();
 		w.configureRotationFor3DPrint();
-		w.writeNoseCone(shape_param, radius, length, thickness, ogive_shape, n);
+		w.writeNoseCone(nose, n);
 		w.flush();
 		w.close();
 	}
