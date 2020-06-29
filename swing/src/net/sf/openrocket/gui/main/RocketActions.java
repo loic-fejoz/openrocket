@@ -4,29 +4,42 @@ package net.sf.openrocket.gui.main;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.Icon;
 import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
+import javax.swing.filechooser.FileSystemView;
 
 import net.miginfocom.swing.MigLayout;
 import net.sf.openrocket.document.OpenRocketDocument;
 import net.sf.openrocket.document.Simulation;
+import net.sf.openrocket.file.stl.StlOutputSteam;
 import net.sf.openrocket.gui.components.StyledLabel;
 import net.sf.openrocket.gui.configdialog.ComponentConfigDialog;
+import net.sf.openrocket.gui.util.FileHelper;
 import net.sf.openrocket.gui.util.Icons;
+import net.sf.openrocket.gui.util.SwingPreferences;
 import net.sf.openrocket.l10n.Translator;
 import net.sf.openrocket.rocketcomponent.ComponentChangeEvent;
 import net.sf.openrocket.rocketcomponent.ComponentChangeListener;
+import net.sf.openrocket.rocketcomponent.NoseCone;
 import net.sf.openrocket.rocketcomponent.Rocket;
 import net.sf.openrocket.rocketcomponent.RocketComponent;
 import net.sf.openrocket.rocketcomponent.Stage;
 import net.sf.openrocket.startup.Application;
 import net.sf.openrocket.startup.Preferences;
+import net.sf.openrocket.util.BugException;
 import net.sf.openrocket.util.Pair;
 
 
@@ -59,6 +72,7 @@ public class RocketActions {
 	private final RocketAction copyAction;
 	private final RocketAction pasteAction;
 	private final RocketAction editAction;
+	private final RocketAction exportAsStlAction;
 	private final RocketAction newStageAction;
 	private final RocketAction moveUpAction;
 	private final RocketAction moveDownAction;
@@ -80,6 +94,7 @@ public class RocketActions {
 		this.copyAction = new CopyAction();
 		this.pasteAction = new PasteAction();
 		this.editAction = new EditAction();
+		this.exportAsStlAction = new ExportAsStlAction();
 		this.newStageAction = new NewStageAction();
 		this.moveUpAction = new MoveUpAction();
 		this.moveDownAction = new MoveDownAction();
@@ -112,6 +127,7 @@ public class RocketActions {
 		copyAction.clipboardChanged();
 		pasteAction.clipboardChanged();
 		editAction.clipboardChanged();
+		exportAsStlAction.clipboardChanged();
 		newStageAction.clipboardChanged();
 		moveUpAction.clipboardChanged();
 		moveDownAction.clipboardChanged();
@@ -146,6 +162,10 @@ public class RocketActions {
 	
 	public Action getEditAction() {
 		return editAction;
+	}
+	
+	public Action getExportAsStlAction() {
+		return exportAsStlAction;
 	}
 	
 	public Action getNewStageAction() {
@@ -575,7 +595,64 @@ public class RocketActions {
 	}
 
 
-	
+	/**
+	 * Action to export as STL the currently selected component.
+	 */
+	private class ExportAsStlAction extends RocketAction {
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 2912823695512734975L;
+
+		public ExportAsStlAction() {
+			//// Edit
+			this.putValue(NAME, trans.get("RocketActions.ExportStlAct.Export"));
+			//// Edit the selected component.
+			this.putValue(SHORT_DESCRIPTION, trans.get("RocketActions.ExportStlAct.ttip.ExportStl"));
+			clipboardChanged();
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			RocketComponent c = selectionModel.getSelectedComponent();
+			if (c == null || !(c instanceof NoseCone)) {
+				return;
+			}
+			
+			JFileChooser chooser = new JFileChooser(((SwingPreferences) Application.getPreferences()).getDefaultDirectory());
+			chooser.setCurrentDirectory(((SwingPreferences) Application.getPreferences()).getDefaultDirectory());
+			chooser.setVisible(true);
+			chooser.setDialogType(JFileChooser.SAVE_DIALOG);
+			chooser.setDialogTitle("Choose stl file to save to");
+
+			int returnValue = chooser.showSaveDialog(parentFrame);
+			if (returnValue != JFileChooser.APPROVE_OPTION) {
+				return;
+			}
+				
+			File selectedFile = chooser.getSelectedFile();
+			if (selectedFile == null) {
+				return;
+			}
+			selectedFile = FileHelper.ensureExtension(selectedFile, "stl");
+			if (!FileHelper.confirmWrite(selectedFile, parentFrame)) {
+				return;
+			}
+			try {
+				OutputStream os = new FileOutputStream(selectedFile);
+				new StlOutputSteam(os).exportNoseCone((NoseCone)c, 180);
+				os.close();
+			} catch (IOException e1) {
+				FileHelper.errorWriting(e1, parentFrame);
+			}
+		}
+
+		@Override
+		public void clipboardChanged() {
+			RocketComponent selectedComponent = selectionModel.getSelectedComponent();
+			this.setEnabled(selectedComponent != null && selectedComponent instanceof NoseCone);
+		}
+	}
 	
 	
 	
