@@ -9,6 +9,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Stack;
 
 import org.junit.BeforeClass;
@@ -257,6 +259,142 @@ public class StlSaverTest {
 		w.close();
 	}
 	
+	public static interface DistanceFunction {
+		double call(double[] p);
+	}
+	
+	public static interface NormalFunction {
+		double[] call(double[] p);
+	}
+	
+	private int getIndexOf(int span, int i_x, int i_y, int i_z) {
+		return i_x + (span * i_y) + (span * span * i_z);
+	}
+	
+	@Test
+	public void testDualContouring() throws IOException {
+		
+		final DistanceFunction circle_function = new DistanceFunction() {
+			
+			@Override
+			public double call(double[] p) {
+				return 2.5 - Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+			}
+			
+		};
+		
+		final NormalFunction circle_normal = new NormalFunction() {
+			
+			@Override
+			public double[] call(double[] p) {
+				double l = Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+				return new double[] { -p[0] / l, -p[1] / l, -p[2] / l };
+			}
+			
+		};
+		
+		
+		final FileOutputStream os = new FileOutputStream("/tmp/dual-contouring.stl");
+		final StlOutputSteam w = new StlOutputSteam(os);
+		w.writeHeader();
+		w.configureForUnknownTriangleCount();
+		
+		double xmin = -5;
+		double xmax = 5;
+		double ymin = -5;
+		double ymax = 5;
+		double zmin = -5;
+		double zmax = 5;
+		
+		final Map<Integer, double[]> vert_indices = new HashMap<>(10000);
+		final int span = 50;
+		final double x_cell_size = (xmax - xmin) / span;
+		final double y_cell_size = (ymax - ymin) / span;
+		final double z_cell_size = (zmax - zmin) / span;
+		for (int i_x = 0; i_x < span; i_x++) {
+			double x = xmin + ((xmax - xmin) / span) * i_x;
+			for (int i_y = 0; i_y < span; i_y++) {
+				double y = ymin + ((ymax - ymin) / span) * i_y;
+				for (int i_z = 0; i_z < span; i_z++) {
+					double z = zmin + ((zmax - zmin) / span) * i_z;
+					// Not adaptative version
+					double vert[] = new double[] { x + x_cell_size / 2.0, y + y_cell_size / 2.0, z + z_cell_size / 2 };
+					//
+					vert_indices.put(getIndexOf(span, i_x, i_y, i_z), vert);
+				}
+			}
+		}
+		double[] p = new double[] { 0.0, 0.0, 0.0 };
+		double[] p_adjacent = new double[] { 0.0, 0.0, 0.0 };
+		for (int i_x = 0; i_x < span; i_x++) {
+			double x = xmin + ((xmax - xmin) / span) * i_x;
+			p[0] = x;
+			for (int i_y = 0; i_y < span; i_y++) {
+				double y = ymin + ((ymax - ymin) / span) * i_y;
+				p[1] = y;
+				for (int i_z = 0; i_z < span; i_z++) {
+					double z = zmin + ((zmax - zmin) / span) * i_z;
+					p[2] = z;
+					
+					p_adjacent[0] = p[0];
+					p_adjacent[1] = p[1];
+					p_adjacent[2] = p[2];
+					
+					final boolean solid1 = circle_function.call(p) > 0.0;
+					
+					if (x > xmin && y > ymin) {
+						p_adjacent[2] = p[2] + z_cell_size;
+						final boolean solid2 = circle_function.call(p_adjacent) > 0.0;
+						if (solid1 != solid2) {
+							
+							double[] p1a = vert_indices.get(getIndexOf(span, i_x - 1, i_y - 1, i_z));
+							double[] p1b = vert_indices.get(getIndexOf(span, i_x - 0, i_y - 1, i_z));
+							double[] p2b = vert_indices.get(getIndexOf(span, i_x - 0, i_y - 0, i_z));
+							double[] p2a = vert_indices.get(getIndexOf(span, i_x - 1, i_y - 0, i_z));
+							w.writeSquare(p1a, p1b, p2b, p2a);
+							//todo swap if solid2
+						}
+						// reset
+						p_adjacent[2] = p[2];
+					}
+					
+					if (x > xmin && z > zmin) {
+						p_adjacent[1] = p[1] + y_cell_size;
+						final boolean solid2 = circle_function.call(p_adjacent) > 0.0;
+						if (solid1 != solid2) {
+							
+							double[] p1a = vert_indices.get(getIndexOf(span, i_x - 1, i_y, i_z - 1));
+							double[] p1b = vert_indices.get(getIndexOf(span, i_x - 0, i_y, i_z - 1));
+							double[] p2b = vert_indices.get(getIndexOf(span, i_x - 0, i_y, i_z));
+							double[] p2a = vert_indices.get(getIndexOf(span, i_x - 1, i_y, i_z));
+							w.writeSquare(p1a, p1b, p2b, p2a);
+							//todo swap if solid2
+						}
+						// reset
+						p_adjacent[1] = p[1];
+					}
+					
+					if (y > ymin && z > zmin) {
+						p_adjacent[0] = p[0] + x_cell_size;
+						final boolean solid2 = circle_function.call(p_adjacent) > 0.0;
+						if (solid1 != solid2) {
+							
+							double[] p1a = vert_indices.get(getIndexOf(span, i_x, i_y - 1, i_z - 1));
+							double[] p1b = vert_indices.get(getIndexOf(span, i_x, i_y - 0, i_z - 1));
+							double[] p2b = vert_indices.get(getIndexOf(span, i_x, i_y - 0, i_z));
+							double[] p2a = vert_indices.get(getIndexOf(span, i_x, i_y - 1, i_z));
+							w.writeSquare(p1a, p1b, p2b, p2a);
+							//todo swap if solid2
+						}
+						// reset
+						p_adjacent[2] = p[2];
+					}
+				}
+			}
+		}
+		w.flush();
+		w.close();
+	}
 	
 	//	
 	//	////////////////////////////////
