@@ -307,7 +307,7 @@ public class StlSaverTest {
 		double zmax = 5;
 		
 		final Map<Integer, double[]> vert_indices = new HashMap<>(10000);
-		final int span = 50;
+		final int span = 100;
 		final double x_cell_size = (xmax - xmin) / span;
 		final double y_cell_size = (ymax - ymin) / span;
 		final double z_cell_size = (zmax - zmin) / span;
@@ -319,6 +319,60 @@ public class StlSaverTest {
 					double z = zmin + ((zmax - zmin) / span) * i_z;
 					// Not adaptative version
 					double vert[] = new double[] { x + x_cell_size / 2.0, y + y_cell_size / 2.0, z + z_cell_size / 2 };
+					
+					if (true) {
+						// Adaptive version
+						double vertxyz[] = new double[] { x + x_cell_size, y + y_cell_size, z + z_cell_size };
+						double vertxy[] = new double[] { x + x_cell_size, y + y_cell_size, z };
+						double vertx[] = new double[] { x + x_cell_size, y, z };
+						double vertxz[] = new double[] { x + x_cell_size, y, z + z_cell_size };
+						double vertyz[] = new double[] { x, y + y_cell_size, z + z_cell_size };
+						double verty[] = new double[] { x, y + y_cell_size, z };
+						double vertz[] = new double[] { x, y, z + z_cell_size };
+						vert = new double[] { x, y, z };
+						
+						final boolean d = circle_function.call(vert) > 0.0;
+						final boolean dxyz = circle_function.call(vertxyz) > 0.0;
+						final boolean dxy = circle_function.call(vertxy) > 0.0;
+						final boolean dx = circle_function.call(vertx) > 0.0;
+						final boolean dxz = circle_function.call(vertxz) > 0.0;
+						final boolean dyz = circle_function.call(vertyz) > 0.0;
+						final boolean dy = circle_function.call(verty) > 0.0;
+						final boolean dz = circle_function.call(vertz) > 0.0;
+						
+						/*boolean changeX = false;
+						if ((d != dx) || (dz != dxz) || (dyz != dxyz) || (dy != dxy)) {
+							changeX = true;
+						}
+						boolean changeY = false;
+						if ((d != dy) || (dx != dxy) || (dz != dyz) || (dxz != dxyz)) {
+							changeY = true;
+						}
+						boolean changeZ = false;
+						if ((d != dz) || (dx != dxz) || (dy != dyz) || (dxy != dxyz)) {
+							changeZ = true;
+						}*/
+						final double precision = 0.0001;
+						if (d != dxyz) {
+							vert = findByDichotomy(precision, circle_function, vert, vertxyz);
+						} else if (d != dxz) {
+							vert = findByDichotomy(precision, circle_function, vert, vertxz);
+						} else if (d != dxy) {
+							vert = findByDichotomy(precision, circle_function, vert, vertxy);
+						} else if (d != dyz) {
+							vert = findByDichotomy(precision, circle_function, vert, vertyz);
+						} else if (d != dxz) {
+							vert = findByDichotomy(precision, circle_function, vert, vertxz);
+						} else if (d != dx) {
+							vert = findByDichotomy(precision, circle_function, vert, vertx);
+						} else if (d != dy) {
+							vert = findByDichotomy(precision, circle_function, vert, verty);
+						} else if (d != dz) {
+							vert = findByDichotomy(precision, circle_function, vert, vertz);
+						}
+						
+					}
+					
 					//
 					vert_indices.put(getIndexOf(span, i_x, i_y, i_z), vert);
 				}
@@ -394,6 +448,26 @@ public class StlSaverTest {
 		}
 		w.flush();
 		w.close();
+	}
+	
+	private double[] findByDichotomy(
+			final double precision,
+			final DistanceFunction circle_function,
+			double[] p1,
+			double[] p2) {
+		boolean p1In = circle_function.call(p1) > 0.0;
+		boolean p2In = circle_function.call(p2) > 0.0;
+		assert (p1In != p2In);
+		while (dist2(p1, p2) > precision * precision) {
+			double newP[] = middle(p1, p2);
+			boolean newPIn = circle_function.call(newP) > 0.0;
+			if (newPIn == p1In) {
+				p1 = newP;
+			} else {
+				p2 = newP;
+			}
+		}
+		return middle(p1, p2);
 	}
 	
 	//	
@@ -558,6 +632,23 @@ public class StlSaverTest {
 	//		return file;
 	//	}
 	//	
+	
+	private double dist2(double[] p1, double[] p2) {
+		double acc = 0.0;
+		for (int i = 0; i < 3; ++i) {
+			double d = (p1[i] - p2[i]);
+			acc += d * d;
+		}
+		return acc;
+	}
+	
+	private double[] middle(double[] p1, double[] p2) {
+		return new double[] {
+				(p1[0] + p2[0]) / 2.0,
+				(p1[1] + p2[1]) / 2.0,
+				(p1[2] + p2[2]) / 2.0,
+		};
+	}
 	
 	private static ThrustCurveMotor readMotor() {
 		GeneralMotorLoader loader = new GeneralMotorLoader();
